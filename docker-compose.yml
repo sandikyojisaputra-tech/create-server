@@ -1,0 +1,94 @@
+networks:
+  ptero_internal:
+    driver: bridge
+    internal: true # Keamanan tambahan: jaringan ini tidak punya akses internet luar
+  ptero_public:
+    driver: bridge
+    name: ptero_public # Memberikan nama tetap agar mudah dikenali
+
+services:
+  # --- Database ---
+  database:
+    image: mariadb:10.11
+    container_name: ptero_db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --skip-ssl
+    volumes:
+      - ./database:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "GANTI_PASSWORD_ROOT_DATABASE"
+      MYSQL_DATABASE: panel
+      MYSQL_USER: pterodactyl
+      MYSQL_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      TZ: Asia/Jakarta
+    networks:
+      - ptero_internal # Database hanya butuh jaringan internal
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u pterodactyl -pGANTI_PASSWORD_DATABASE || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: ptero_redis
+    restart: unless-stopped
+    command: redis-server --requirepass "GANTI_PASSWORD_REDIS"
+    networks:
+      - ptero_internal # Redis hanya butuh jaringan internal
+
+  # --- Pterodactyl Panel ---
+  panel:
+    image: ghcr.io/pterodactyl/panel:latest
+    container_name: ptero_panel
+    restart: unless-stopped
+    depends_on:
+      - database
+      - redis
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./panel/var:/app/var
+      - ./panel/nginx:/etc/nginx/http.d
+      - ./logs:/app/storage/logs
+    networks:
+      - ptero_internal # Untuk bicara ke DB & Redis
+      - ptero_public   # Untuk diakses user & bicara ke Wings
+    environment:
+      APP_URL: "https://${CODESPACE_NAME}-80.app.github.dev"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_TIMEZONE: Asia/Jakarta
+      APP_SERVICE_AUTHOR: "admin@yourdomain.com"
+      TRUSTED_PROXIES: "*"
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_DATABASE: panel
+      DB_USERNAME: pterodactyl
+      DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      REDIS_HOST: redis
+      REDIS_PASSWORD: "GANTI_PASSWORD_REDIS"
+
+  # --- Pterodactyl Wings ---
+  wings:
+    image: ghcr.io/pterodactyl/wings:latest
+    container_name: ptero_wings
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8080:8080"
+      - "2022:2022"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /etc/pterodactyl:/etc/pterodactyl
+      - /var/lib/pterodactyl:/var/lib/pterodactyl
+      - /var/log/pterodactyl:/var/log/pterodactyl
+      - /tmp/pterodactyl:/tmp/pterodactyl
+    networks:
+      - ptero_public # Wings berada di jaringan publik agar Panel bisa menghubunginya
