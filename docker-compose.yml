@@ -71,16 +71,13 @@ services:
       APP_TIMEZONE: Asia/Jakarta
       APP_SERVICE_AUTHOR: "admin@yourdomain.com"
       TRUSTED_PROXIES: "*"
-      # Database Config
       DB_HOST: database
       DB_PORT: 3306
       DB_DATABASE: panel
       DB_USERNAME: pterodactyl
       DB_PASSWORD: "GANTI_PASSWORD_DATABASE"
-      # Bypass SSL Error
       DB_COMMON_FLAGS: "--skip-ssl"
       MYSQL_ATTR_SSL_CA: null
-      # Redis Config
       CACHE_DRIVER: redis
       SESSION_DRIVER: redis
       QUEUE_CONNECTION: redis
@@ -97,18 +94,18 @@ services:
       - "8080:8080"
       - "2022:2022"
     environment:
-      TZ: "Asia/Jakarta" # Disamakan dengan panel agar log sinkron
+      TZ: "Asia/Jakarta"
       WINGS_UID: 988
       WINGS_GID: 988
       WINGS_USERNAME: pterodactyl
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /etc/pterodactyl:/etc/pterodactyl
-      - /var/lib/pterodactyl:/var/lib/pterodactyl
-      - /var/log/pterodactyl:/var/log/pterodactyl
+      - ./wings/etc:/etc/pterodactyl # Diperbaiki: Jalur lokal ke ./wings/etc
+      - ./wings/var/lib:/var/lib/pterodactyl # Diperbaiki: Menggunakan folder lokal
+      - ./wings/var/log:/var/log/pterodactyl # Diperbaiki: Menggunakan folder lokal
       - /tmp/pterodactyl:/tmp/pterodactyl
       - /etc/ssl/certs:/etc/ssl/certs:ro
     networks:
       - wings0
-      - ptero_public # Ditambahkan agar wings bisa mengakses jaringan panel jika diperlukan
+      - ptero_public
